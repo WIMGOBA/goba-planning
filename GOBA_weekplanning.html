@@ -233,7 +233,7 @@ tbody tr.highlight-month:hover td{background:#FFF9C4!important}
     </button>
     <button class="btn btn-dark" id="uploadBtn" onclick="document.getElementById('fileIn').click()" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4-4 4M12 4v12"/></svg>
-      Nieuwe week
+      Handmatige upload
     </button>
     <input type="file" id="fileIn" style="display:none" onchange="handleFile(this.files[0])">
   </div>
@@ -297,13 +297,12 @@ tbody tr.highlight-month:hover td{background:#FFF9C4!important}
       <button class="btn" id="btnOverdue" onclick="setFilter('overdue',this)">Verlopen</button>
       <button class="btn" id="btnSort" onclick="toggleSort(this)" title="Sorteer op bedrag">↕ Bedrag</button>
       <button class="btn btn-mijn" id="btnMijn" onclick="setFilter('mijn',this)">Mijn klussen</button>
-      <button class="btn btn-green" onclick="exportXLSX()">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        Excel
-      </button>
       <div class="search-wrap">
         <input type="text" id="zoekOmsch" placeholder="Zoek klant / omschrijving…" oninput="applyFilter()">
         <input type="text" id="zoekMed" placeholder="Zoek medewerker…" oninput="applyFilter()">
+        <input type="date" id="filterVan" title="Leverdatum vanaf" onchange="applyFilter()" style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        <input type="date" id="filterTot" title="Leverdatum tot" onchange="applyFilter()" style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        <button class="btn" onclick="resetDatum()" title="Datum filter wissen" style="padding:7px 10px">✕</button>
       </div>
     </div>
 
@@ -368,7 +367,7 @@ async function sbPatch(table,id,data){
 // ===== STATE =====
 const NOW=new Date(),CUR_MONTH=NOW.getMonth(),CUR_YEAR=NOW.getFullYear();
 const MAANDEN=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
-let allRows=[],filteredRows=[],currentFilter='all',mijnNaam='',isAdmin=false,sortOrder='none';
+let allRows=[],filteredRows=[],currentFilter='all',mijnNaam='',isAdmin=false,sortOrder='none',filterDatumVan='',filterDatumTot='';
 
 // ===== NAAM =====
 function initNaam(){
@@ -633,6 +632,12 @@ function updateStats(){
   document.getElementById('phCount').textContent=mr.length+' regels — '+MAANDEN[CUR_MONTH]+' '+CUR_YEAR;
 }
 
+function resetDatum(){
+  document.getElementById('filterVan').value='';
+  document.getElementById('filterTot').value='';
+  applyFilter();
+}
+
 function toggleSort(btn){
   if(sortOrder==='none'||sortOrder==='asc'){
     sortOrder='desc';btn.textContent='↓ Hoog→Laag';btn.classList.add('active');
@@ -661,6 +666,19 @@ function applyFilter(){
   if(currentFilter==='mijn')rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(mijnNaam.toLowerCase()));
   if(zoekOmsch)rows=rows.filter(r=>r.customer.toLowerCase().includes(zoekOmsch)||r.omschrijving.toLowerCase().includes(zoekOmsch)||r.project.toLowerCase().includes(zoekOmsch));
   if(zoekMed)rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(zoekMed));
+  // Datum filter
+  const van=document.getElementById('filterVan').value;
+  const tot=document.getElementById('filterTot').value;
+  if(van||tot){
+    rows=rows.filter(r=>{
+      if(!r.leverdatumStr)return false;
+      const p=r.leverdatumStr.split('-');
+      const d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
+      if(van&&d<new Date(van))return false;
+      if(tot&&d>new Date(tot))return false;
+      return true;
+    });
+  }
   // Sorteer op bedrag
   if(sortOrder==='desc')rows.sort((a,b)=>eur(b.bedrag)-eur(a.bedrag));
   if(sortOrder==='asc')rows.sort((a,b)=>eur(a.bedrag)-eur(b.bedrag));
