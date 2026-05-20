@@ -630,12 +630,6 @@ function updateStats(){
   document.getElementById('phCount').textContent=mr.length+' regels — '+MAANDEN[CUR_MONTH]+' '+CUR_YEAR;
 }
 
-function resetDatum(){
-  document.getElementById('filterVan').value='';
-  document.getElementById('filterTot').value='';
-  applyFilter();
-}
-
 function toggleSortDatum(btn){
   if(sortDatumOrder==='none'||sortDatumOrder==='desc'){
     sortDatumOrder='asc';btn.textContent='↑ Datum oud→nieuw';btn.classList.add('active');
@@ -675,19 +669,6 @@ function applyFilter(){
   if(currentFilter==='mijn')rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(mijnNaam.toLowerCase()));
   if(zoekOmsch)rows=rows.filter(r=>r.customer.toLowerCase().includes(zoekOmsch)||r.omschrijving.toLowerCase().includes(zoekOmsch)||r.project.toLowerCase().includes(zoekOmsch));
   if(zoekMed)rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(zoekMed));
-  // Datum filter
-  const van=document.getElementById('filterVan').value;
-  const tot=document.getElementById('filterTot').value;
-  if(van||tot){
-    rows=rows.filter(r=>{
-      if(!r.leverdatumStr)return false;
-      const p=r.leverdatumStr.split('-');
-      const d=new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
-      if(van&&d<new Date(van))return false;
-      if(tot&&d>new Date(tot))return false;
-      return true;
-    });
-  }
   // Sorteer op bedrag
   if(sortOrder==='desc')rows.sort((a,b)=>eur(b.bedrag)-eur(a.bedrag));
   if(sortOrder==='asc')rows.sort((a,b)=>eur(a.bedrag)-eur(b.bedrag));
