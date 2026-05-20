@@ -109,6 +109,7 @@ tbody tr.highlight-month:hover td{background:#FFF9C4!important}
 .jn-nn{background:var(--surface2);color:var(--text2)}
 .jn-empty{color:var(--text3);font-size:12px}
 .new-badge{display:inline-block;background:#FFF3E0;color:#BF360C;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:600;vertical-align:middle;text-transform:uppercase}
+.vrij-badge{display:inline-block;background:#E8F5E9;color:#2E7D32;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:600;vertical-align:middle;text-transform:uppercase;border:1px solid #A5D6A7}
 
 .medew-input{width:100%;padding:4px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:#C62828;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all 0.12s;outline:none}
 .medew-input:hover{border-color:var(--border);background:var(--surface2)}
@@ -493,9 +494,13 @@ function handleFile(file){
       parsed.rows.forEach(r=>{
         r.isNew=!bestaandIds.has(r.id);
         if(!r.isNew){
-          // Bewaar handmatig ingevulde naam — overschrijf alleen als leeg was
           const bestaandeMed=medMap[r.id];
-          if(bestaandeMed) r.medewerker=bestaandeMed;
+          // Als materiaal ontvangen (JJ) en medewerker is nog MeTaG → leegmaken zodat iemand kan oppakken
+          if(r.besteld==='J'&&r.ontvangen==='J'&&bestaandeMed==='MeTaG'){
+            r.medewerker='';
+          } else if(bestaandeMed){
+            r.medewerker=bestaandeMed;
+          }
         }
       });
 
@@ -766,11 +771,12 @@ function renderTable(rows){
     const rowCls=[hl,isMijn&&!hl?'mijn-row':''].filter(Boolean).join(' ');
     const gIdx=allRows.indexOf(r);
     const medVal=r.medewerker||'';
+    const isVrij=!medVal&&r.besteld==='J'&&r.ontvangen==='J';
     const datumStijl=overdue
       ?`font-family:'DM Mono',monospace;font-size:11px;color:#C62828;font-weight:700`
       :`font-family:'DM Mono',monospace;font-size:11px`;
     html+=`<tr class="${rowCls}">
-      <td><input class="medew-input" value="${esc(medVal)}" placeholder="naam…" onchange="updateMed(${gIdx},this.value)"></td>
+      <td><input class="medew-input" value="${esc(medVal)}" placeholder="naam…" onchange="updateMed(${gIdx},this.value)">${isVrij?'<span class="vrij-badge">✓ Vrij</span>':''}</td>
       <td style="${datumStijl}">${esc(r.leverdatumStr)}</td>
       <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${esc(r.metagnr)}</td>
       <td class="omsch-cell" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.omschrijving)}">${esc(r.omschrijving)}</td>
