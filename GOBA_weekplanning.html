@@ -296,13 +296,11 @@ tbody tr.highlight-month:hover td{background:#FFF9C4!important}
       <button class="btn" id="btnNew" onclick="setFilter('new',this)">Nieuw</button>
       <button class="btn" id="btnOverdue" onclick="setFilter('overdue',this)">Verlopen</button>
       <button class="btn" id="btnSort" onclick="toggleSort(this)" title="Sorteer op bedrag">↕ Bedrag</button>
+      <button class="btn" id="btnSortDatum" onclick="toggleSortDatum(this)" title="Sorteer op leverdatum">↕ Datum</button>
       <button class="btn btn-mijn" id="btnMijn" onclick="setFilter('mijn',this)">Mijn klussen</button>
       <div class="search-wrap">
         <input type="text" id="zoekOmsch" placeholder="Zoek klant / omschrijving…" oninput="applyFilter()">
         <input type="text" id="zoekMed" placeholder="Zoek medewerker…" oninput="applyFilter()">
-        <input type="date" id="filterVan" title="Leverdatum vanaf" onchange="applyFilter()" style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
-        <input type="date" id="filterTot" title="Leverdatum tot" onchange="applyFilter()" style="padding:7px 10px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
-        <button class="btn" onclick="resetDatum()" title="Datum filter wissen" style="padding:7px 10px">✕</button>
       </div>
     </div>
 
@@ -367,7 +365,7 @@ async function sbPatch(table,id,data){
 // ===== STATE =====
 const NOW=new Date(),CUR_MONTH=NOW.getMonth(),CUR_YEAR=NOW.getFullYear();
 const MAANDEN=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
-let allRows=[],filteredRows=[],currentFilter='all',mijnNaam='',isAdmin=false,sortOrder='none',filterDatumVan='',filterDatumTot='';
+let allRows=[],filteredRows=[],currentFilter='all',mijnNaam='',isAdmin=false,sortOrder='none',sortDatumOrder='none';
 
 // ===== NAAM =====
 function initNaam(){
@@ -638,6 +636,17 @@ function resetDatum(){
   applyFilter();
 }
 
+function toggleSortDatum(btn){
+  if(sortDatumOrder==='none'||sortDatumOrder==='desc'){
+    sortDatumOrder='asc';btn.textContent='↑ Datum oud→nieuw';btn.classList.add('active');
+  } else if(sortDatumOrder==='asc'){
+    sortDatumOrder='desc';btn.textContent='↓ Datum nieuw→oud';btn.classList.add('active');
+  } else {
+    sortDatumOrder='none';btn.textContent='↕ Datum';btn.classList.remove('active');
+  }
+  applyFilter();
+}
+
 function toggleSort(btn){
   if(sortOrder==='none'||sortOrder==='asc'){
     sortOrder='desc';btn.textContent='↓ Hoog→Laag';btn.classList.add('active');
@@ -682,6 +691,14 @@ function applyFilter(){
   // Sorteer op bedrag
   if(sortOrder==='desc')rows.sort((a,b)=>eur(b.bedrag)-eur(a.bedrag));
   if(sortOrder==='asc')rows.sort((a,b)=>eur(a.bedrag)-eur(b.bedrag));
+  // Sorteer op datum
+  if(sortDatumOrder!=='none'){
+    rows.sort((a,b)=>{
+      const toDate=s=>{if(!s)return new Date(9999,0,1);const p=s.split('-');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));};
+      const da=toDate(a.leverdatumStr),db=toDate(b.leverdatumStr);
+      return sortDatumOrder==='asc'?da-db:db-da;
+    });
+  }
   filteredRows=rows;renderTable(filteredRows);
 }
 
