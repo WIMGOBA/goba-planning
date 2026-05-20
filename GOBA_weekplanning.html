@@ -297,6 +297,7 @@ tbody tr.highlight-month:hover td{background:#FFF9C4!important}
       <button class="btn" id="btnOverdue" onclick="setFilter('overdue',this)">Verlopen</button>
       <button class="btn" id="btnSort" onclick="toggleSort(this)" title="Sorteer op bedrag">↕ Bedrag</button>
       <button class="btn" id="btnSortDatum" onclick="toggleSortDatum(this)" title="Sorteer op leverdatum">↕ Datum</button>
+      <button class="btn" onclick="resetAlles()" title="Alles resetten" style="border-color:var(--red-text);color:var(--red-text)">↺ Reset</button>
       <button class="btn btn-mijn" id="btnMijn" onclick="setFilter('mijn',this)">Mijn klussen</button>
       <div class="search-wrap">
         <input type="text" id="zoekOmsch" placeholder="Zoek klant / omschrijving…" oninput="applyFilter()">
@@ -628,6 +629,23 @@ function updateStats(){
   document.getElementById('stOver').textContent=allRows.filter(r=>r.medewerker).length;
   document.getElementById('phAmount').textContent=fmtEur(total);
   document.getElementById('phCount').textContent=mr.length+' regels — '+MAANDEN[CUR_MONTH]+' '+CUR_YEAR;
+}
+
+function resetAlles(){
+  // Reset filters
+  currentFilter='all';
+  document.querySelectorAll('.toolbar .btn[id^="btn"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.add('active');
+  // Reset sortering
+  sortOrder='none';sortDatumOrder='none';
+  document.getElementById('btnSort').textContent='↕ Bedrag';
+  document.getElementById('btnSort').classList.remove('active');
+  document.getElementById('btnSortDatum').textContent='↕ Datum';
+  document.getElementById('btnSortDatum').classList.remove('active');
+  // Reset zoekvelden
+  document.getElementById('zoekOmsch').value='';
+  document.getElementById('zoekMed').value='';
+  applyFilter();
 }
 
 function toggleSortDatum(btn){
