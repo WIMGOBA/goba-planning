@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GOBA Weekplanning</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F5F4F0;--surface:#fff;--surface2:#F0EFEB;
+  --border:#E2E0D8;--border-strong:#C8C5BA;
+  --text:#1A1916;--text2:#6B6860;--text3:#9E9C96;
+  --accent:#1A1916;--yellow-bg:#FFFDE7;
+  --green-bg:#E8F5E9;--green-text:#2E7D32;
+  --red-bg:#FFEBEE;--red-text:#C62828;
+  --orange-bg:#FFF8E1;--orange-text:#E65100;
+  --blue-bg:#E3F2FD;--blue-text:#1565C0;
+  --purple-bg:#F3E5F5;--purple-text:#6A1B9A;
+  --radius:8px;--radius-lg:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 2rem;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:32px;height:32px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.logo-mark svg{width:18px;height:18px;stroke:white;fill:none;stroke-width:2}
+.logo-name{font-size:15px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:12px;color:var(--text2);margin-left:4px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.week-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--text2);font-family:'DM Mono',monospace}
+.sync-indicator{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#A5D6A7;display:inline-block}
+.sync-dot.syncing{background:#FFD54F;animation:pulse 1s infinite}
+.sync-dot.error{background:#EF9A9A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+.main{max-width:1400px;margin:0 auto;padding:2rem}
+
+/* NAAM MODAL */
+.naam-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center}
+.naam-modal{background:var(--surface);border-radius:var(--radius-lg);padding:2rem;width:400px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.naam-modal h2{font-size:18px;font-weight:700;margin-bottom:8px}
+.naam-modal p{font-size:13px;color:var(--text2);margin-bottom:1.5rem}
+.naam-modal input{width:100%;padding:10px 14px;border-radius:var(--radius);border:1.5px solid var(--border);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:1rem}
+.naam-modal input:focus{border-color:var(--accent)}
+.naam-modal button{width:100%;padding:10px;border-radius:var(--radius);border:none;background:var(--accent);color:white;font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer}
+.naam-modal button:hover{opacity:0.85}
+
+.upload-zone{border:2px dashed var(--border-strong);border-radius:var(--radius-lg);padding:3rem 2rem;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--surface);margin-bottom:1.5rem}
+.upload-zone:hover{border-color:var(--accent);background:var(--surface2)}
+.upload-icon{width:56px;height:56px;background:var(--surface2);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.upload-icon svg{width:28px;height:28px;stroke:var(--text2);fill:none;stroke-width:1.5}
+.upload-title{font-size:16px;font-weight:500;margin-bottom:6px}
+.upload-sub{font-size:13px;color:var(--text2)}
+
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:1.5rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px}
+.stat-label{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:600;letter-spacing:-1px}
+.stat-value.red{color:var(--red-text)}
+.stat-value.green{color:var(--green-text)}
+.stat-sub{font-size:11px;color:var(--text3);margin-top:2px}
+
+.toolbar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.12s;font-weight:500}
+.btn:hover{background:var(--surface2);border-color:var(--border-strong)}
+.btn.active{background:var(--accent);color:white;border-color:var(--accent)}
+.btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8}
+.btn-green{background:var(--green-bg);color:var(--green-text);border-color:#A5D6A7}
+.btn-green:hover{background:#C8E6C9}
+.btn-dark{background:var(--accent);color:white;border-color:var(--accent)}
+.btn-dark:hover{opacity:0.85}
+.btn-mijn{background:#E3F2FD;color:#1565C0;border-color:#90CAF9;font-weight:700}
+.btn-mijn.active{background:#1565C0;color:white}
+.search-wrap{margin-left:auto;display:flex;gap:8px}
+.search-wrap input{padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;width:200px;outline:none}
+
+.legend{display:flex;gap:16px;align-items:center;font-size:12px;color:var(--text2);margin-bottom:12px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:6px}
+
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--surface2);padding:9px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface2)}
+
+.customer-row td{background:#F0EFEB!important;font-size:13px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.6px;padding:7px 12px;border:2px solid #1A1916!important}
+.project-row td{background:#F0F7F0!important;padding:4px 12px;border-top:1px solid var(--border)}
+.proj-num{font-size:12px;font-weight:700;color:#2E7D32;font-family:'DM Mono',monospace}
+.proj-name{font-size:11px;font-weight:500;color:#2E7D32;font-style:italic}
+.highlight-month td{background:var(--yellow-bg)!important}
+tbody tr.highlight-month:hover td{background:#FFF9C4!important}
+.ws-bezig td{background:#FFF3E0!important}
+tbody tr.ws-bezig:hover td{background:#FFE0B2!important}
+.ws-gereed td{background:#E8F5E9!important}
+tbody tr.ws-gereed:hover td{background:#C8E6C9!important}
+.ws-wacht td{background:#F3E5F5!important}
+tbody tr.ws-wacht:hover td{background:#E1BEE7!important}
+.totaal-row td{background:#EEF2FF!important;font-weight:600;border-top:2px solid #5C6BC0!important;font-size:12px}
+.mijn-row td{background:#E8F5FF!important}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;font-family:'DM Mono',monospace}
+.s6{background:var(--orange-bg);color:var(--orange-text)}
+.s7{background:var(--blue-bg);color:var(--blue-text)}
+.s8{background:var(--green-bg);color:var(--green-text)}
+.s9{background:var(--purple-bg);color:var(--purple-text)}
+.sX{background:var(--surface2);color:var(--text2)}
+.jn-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;font-family:'DM Mono',monospace}
+.jn-jj{background:var(--green-bg);color:var(--green-text)}
+.jn-jn{background:var(--red-bg);color:var(--red-text)}
+.jn-nj{background:var(--orange-bg);color:var(--orange-text)}
+.jn-nn{background:var(--surface2);color:var(--text2)}
+.jn-empty{color:var(--text3);font-size:12px}
+.new-badge{display:inline-block;background:#FFF3E0;color:#BF360C;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:600;vertical-align:middle;text-transform:uppercase}
+.vrij-badge{display:inline-block;background:#E8F5E9;color:#2E7D32;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:600;vertical-align:middle;text-transform:uppercase;border:1px solid #A5D6A7}
+
+.medew-input{width:100%;padding:4px 8px;border-radius:5px;border:1px solid transparent;background:transparent;color:#C62828;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;transition:all 0.12s;outline:none}
+.medew-input:hover{border-color:var(--border);background:var(--surface2)}
+.medew-input:focus{border-color:var(--border-strong);background:var(--surface)}
+.medew-input::placeholder{color:var(--text3);font-weight:400}
+
+.empty-state{text-align:center;padding:5rem 2rem;color:var(--text2)}
+.nog-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px}
+.nog-regel{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border)}
+.nog-regel:last-child{border-bottom:none}
+.nog-input{flex:1;padding:5px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:12px;font-family:'DM Sans',sans-serif;outline:none}
+.nog-del{width:24px;height:24px;border-radius:4px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center}
+.nog-del:hover{background:var(--red-bg);color:var(--red-text)}
+
+.mijn-naam-tag{background:#E3F2FD;color:#1565C0;border:1px solid #90CAF9;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.mijn-naam-tag:hover{background:#BBDEFB}
+
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}.main{padding:1rem}}
+
+/* PRINT */
+.print-only{display:none}
+@media print{
+  @page{size:A4 portrait;margin:10mm 8mm}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  body{background:white!important;font-size:9pt}
+  .topbar,.upload-zone,.toolbar,.legend,.stats,.search-wrap,.nog-del,.btn,.naam-overlay{display:none!important}
+  .main{max-width:100%!important;padding:0!important;margin:0!important}
+  #appBody{display:block!important}
+  .print-only{display:block!important}
+  .print-header{display:flex!important;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1A1916;padding-bottom:5px;margin-bottom:5px}
+  .ph-title{font-size:14pt;font-weight:700}
+  .ph-week{font-size:9pt;color:#6B6860;margin-top:2px}
+  .ph-right{text-align:right}
+  .ph-label{font-size:7pt;text-transform:uppercase;color:#9E9C96;letter-spacing:0.5px}
+  .ph-amount{font-size:13pt;font-weight:700;color:#2E7D32}
+  .ph-count{font-size:8pt;color:#6B6860}
+  .print-legend{display:flex!important;gap:12px;margin-bottom:5px;font-size:7.5pt;color:#6B6860;align-items:center;border-bottom:0.5px solid #E2E0D8;padding-bottom:4px}
+  .pl-dot{width:7px;height:7px;border-radius:1px;display:inline-block;margin-right:3px}
+  thead{display:table-header-group!important}
+  thead tr th{background:#4A6FA5!important;color:white!important;font-size:7.5pt!important;font-weight:700!important;text-transform:uppercase!important;padding:5px 4px!important;border:none!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .table-wrap{border:none!important;border-radius:0!important;overflow:visible!important}
+  table{width:100%!important;border-collapse:collapse!important;font-size:8pt!important;table-layout:fixed!important}
+  tr{page-break-inside:avoid!important;break-inside:avoid!important}
+  .customer-row{page-break-after:avoid!important;break-after:avoid!important}
+  .project-row{page-break-after:avoid!important;break-after:avoid!important}
+  td{padding:4px 4px!important;border-bottom:0.5px solid #E2E0D8!important;font-size:8pt!important;overflow:hidden!important;white-space:nowrap!important;text-overflow:ellipsis!important}
+  .customer-row td{background:#F0EFEB!important;color:#1A1916!important;font-size:8.5pt!important;font-weight:800!important;padding:5px 4px!important;border:1.5px solid #1A1916!important}
+  .project-row td{background:#EDF7ED!important;padding:3px 4px!important;border-bottom:0.5px solid #C8E6C9!important}
+  .proj-num{color:#2E7D32!important;font-weight:700!important;font-size:8pt!important}
+  .proj-name{color:#388E3C!important;font-style:italic;font-size:7.5pt!important}
+  .highlight-month td{background:#FFFDE7!important}
+  .overdue-row td{background:#FFEBEE!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  .totaal-row td{background:#EEF2FF!important;font-weight:700!important;border-top:1.5px solid #5C6BC0!important}
+  .jn-badge{padding:2px 4px!important;font-size:7pt!important;border-radius:2px!important}
+  .jn-jj{background:#E8F5E9!important;color:#2E7D32!important}
+  .jn-jn{background:#FFEBEE!important;color:#C62828!important}
+  .s6{background:#FFF8E1!important;color:#E65100!important}
+  .s7{background:#E3F2FD!important;color:#1565C0!important}
+  .s8{background:#E8F5E9!important;color:#2E7D32!important}
+  .s9{background:#F3E5F5!important;color:#6A1B9A!important}
+  .medew-input{border:none!important;background:transparent!important;padding:0!important;font-size:8pt!important;font-weight:700!important;color:#C62828!important;width:100%!important}
+  .medew-input:placeholder-shown{visibility:hidden!important}
+  th:nth-child(1),td:nth-child(1){width:11%!important}
+  th:nth-child(2),td:nth-child(2){width:11%!important}
+  th:nth-child(3),td:nth-child(3){width:9%!important}
+  th:nth-child(4),td:nth-child(4){width:34%!important}
+  th:nth-child(5),td:nth-child(5){display:none!important;width:0!important}
+  th:nth-child(6),td:nth-child(6){width:5%!important;text-align:right!important}
+  th:nth-child(7),td:nth-child(7){width:5%!important;text-align:right!important}
+  th:nth-child(8),td:nth-child(8){width:5%!important;text-align:right!important}
+  th:nth-child(9),td:nth-child(9){width:12%!important;text-align:right!important}
+  th:nth-child(10),td:nth-child(10){width:8%!important;text-align:center!important}
+  #nogTeMakenContainer{display:block!important;margin-top:8px;page-break-inside:avoid}
+  .nog-wrap{border:0.5px solid #E2E0D8!important;padding:4px 6px!important}
+  .nog-input{border:none!important;background:transparent!important;font-size:6.5pt!important;padding:1px 0!important}
+  #nogTeMakenContainer .btn{display:none!important}
+  .nog-regel{padding:2px 0!important}
+  .print-footer{display:flex!important;justify-content:space-between;margin-top:5px;font-size:6pt;color:#9E9C96;border-top:0.5px solid #E2E0D8;padding-top:3px}
+}
+</style>
+</head>
+<body>
+
+<!-- Naam modal -->
+<!-- Notitie popup -->
+<div id="notitiePopup" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg);padding:1.5rem;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px" id="notitieTitle"></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px" id="notitieSubtitle"></div>
+    <textarea id="notitieText" style="width:100%;height:80px;padding:10px;border-radius:var(--radius);border:1.5px solid var(--border);font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;outline:none;color:var(--text);background:var(--surface2)" placeholder="Typ hier je kantoor notitie…"></textarea>
+    <div id="notitieWpWrap" style="margin-top:10px;display:none">
+      <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">🔧 Werkplaats notitie (alleen lezen)</div>
+      <div id="notitieWpText" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;color:var(--text);min-height:36px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="slaNotitieOp()" style="flex:1;padding:9px;border-radius:var(--radius);border:none;background:var(--accent);color:white;font-size:13px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer">Opslaan</button>
+      <button onclick="sluitNotitie()" style="padding:9px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer">Annuleren</button>
+    </div>
+  </div>
+</div>
+
+<div class="naam-overlay" id="naamOverlay">
+  <div class="naam-modal">
+    <h2>👋 Welkom bij GOBA Planning</h2>
+    <p>Kies je naam om verder te gaan.</p>
+    <select id="naamInput" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #E2E0D8;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:1rem;background:#fff;color:#1A1916">
+      <option value="">— Kies je naam —</option>
+      <option value="AA">1001 — AA</option>
+      <option value="JvA">1002 — JvA</option>
+      <option value="SvW">1036 — SvW</option>
+      <option value="SdV">1006 — SdV</option>
+      <option value="PdR">1041 — PdR</option>
+      <option value="RC">1042 — RC</option>
+      <option value="RH">1035 — RH</option>
+      <option value="JdM">1022 — JdM</option>
+      <option value="HJ">1005 — HJ</option>
+      <option value="AM">1011 — AM</option>
+      <option value="WG">1013 — WG (beheerder)</option>
+    </select>
+    <button onclick="slaaNaamOp()">Doorgaan →</button>
+  </div>
+</div>
+
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="14" y2="18"/></svg></div>
+    <span class="logo-name">GOBA</span><span class="logo-sub">Weekplanning</span>
+  </div>
+  <div class="topbar-right">
+    <div class="week-pill" id="weekPill" style="display:none"></div>
+    <div class="sync-indicator"><span class="sync-dot" id="syncDot"></span><span id="syncTxt">verbonden</span></div>
+    <span class="mijn-naam-tag" id="naamTag" onclick="wijzigNaam()"></span>
+    <button class="btn" onclick="window.print()" style="border-color:var(--border-strong)">
+      <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Afdrukken
+    </button>
+    <button class="btn btn-dark" id="uploadBtn" onclick="document.getElementById('fileIn').click()" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M16 8l-4-4-4 4M12 4v12"/></svg>
+      Handmatige upload
+    </button>
+    <input type="file" id="fileIn" style="display:none" onchange="handleFile(this.files[0])">
+  </div>
+</div>
+
+<div class="main">
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileIn').click()" style="display:none">
+    <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="12" y2="12"/><line x1="15" y1="15" x2="12" y2="12"/></svg></div>
+    <div class="upload-title">Klik hier om je XLS Rapport Bestand te uploaden</div>
+    <div class="upload-sub">Alle collega's zien de planning daarna direct live</div>
+  </div>
+
+  <div id="appBody" style="display:none">
+    <div class="print-only print-header">
+      <div><div class="ph-title">GOBA — Weekplanning</div><div class="ph-week" id="phWeek"></div></div>
+      <div class="ph-right">
+        <div class="ph-label">Volgens planning deze maand</div>
+        <div class="ph-amount" id="phAmount"></div>
+        <div class="ph-count" id="phCount"></div>
+      </div>
+    </div>
+    <div class="print-only print-legend">
+      <strong style="color:#1A1916;margin-right:4px">Legenda:</strong>
+      <span><span class="pl-dot" style="background:#A5D6A7"></span>J J = materiaal ontvangen</span>
+      <span><span class="pl-dot" style="background:#EF9A9A"></span>J N = ligt nog bij MeTaG</span>
+      <span><span class="pl-dot" style="background:#FFFDE7;border:0.5px solid #F9A825"></span>= leverdatum deze maand</span>
+      <span><span class="pl-dot" style="background:#EEF2FF;border:0.5px solid #5C6BC0"></span>= maandtotaal</span>
+      <span style="margin-left:auto;font-style:italic" id="printDate"></span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-label">Totaal regels</div><div class="stat-value" id="stTotal">0</div></div>
+      <div class="stat"><div class="stat-label">Leverbaar deze maand</div><div class="stat-value" id="stMonth">0</div></div>
+      <div class="stat"><div class="stat-label">Volgens planning</div><div class="stat-value green" id="stBedrag">€ 0</div><div class="stat-sub" id="stBedragSub"></div></div>
+      <div class="stat"><div class="stat-label">Nog bij MeTaG</div><div class="stat-value red" id="stMetag">0</div></div>
+      <div class="stat" style="border-color:#A5D6A7;cursor:pointer" onclick="setFilter('vrij',document.getElementById('btnVrij'))">
+        <div class="stat-label">✓ Vrij te verdelen</div>
+        <div class="stat-value green" id="stVrij">0</div>
+        <div class="stat-sub">Klik om te filteren</div>
+      </div>
+      <div class="stat"><div class="stat-label">Medewerkers ingevuld</div><div class="stat-value" id="stOver">0</div></div>
+    </div>
+
+    <div class="legend">
+      <strong style="color:var(--text);font-size:12px">MeTaG:</strong>
+      <div class="leg-item"><span class="jn-badge jn-jj">J J</span> ontvangen</div>
+      <div class="leg-item"><span class="jn-badge jn-jn">J N</span> bij MeTaG</div>
+      <div class="leg-item" style="margin-left:8px;padding-left:8px;border-left:1px solid var(--border)">
+        <span style="display:inline-block;width:14px;height:10px;background:var(--yellow-bg);border:1px solid #E6D800;border-radius:2px"></span> Leverdatum deze maand
+      </div>
+      <div class="leg-item">
+        <span style="display:inline-block;width:14px;height:10px;background:#FFEBEE;border:1px solid #EF9A9A;border-radius:2px"></span> Leverdatum verlopen
+      </div>
+      <div class="leg-item">
+        <span style="display:inline-block;width:14px;height:10px;background:#FFF3E0;border:1px solid #FFB74D;border-radius:2px"></span> Bezig
+      </div>
+      <div class="leg-item">
+        <span style="display:inline-block;width:14px;height:10px;background:#F3E5F5;border:1px solid #CE93D8;border-radius:2px"></span> Wacht
+      </div>
+      <div class="leg-item">
+        <span style="display:inline-block;width:14px;height:10px;background:#E8F5E9;border:1px solid #A5D6A7;border-radius:2px"></span> Gereed voor levering
+      </div>
+      <div class="leg-item">
+        <span style="display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;background:transparent;color:var(--text3);border:1px solid var(--border)">📝</span>
+        = geen notitie
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <button class="btn active" id="btnAll" onclick="setFilter('all',this)">Alles</button>
+      <button class="btn" id="btnMonth" onclick="setFilter('month',this)" style="background:#FFFDE7;color:#F9A825;border-color:#F9A825">Deze maand</button>
+      <button class="btn" id="btnMetag" onclick="setFilter('metag',this)">Bij MeTaG</button>
+      <button class="btn" id="btnNew" onclick="setFilter('new',this)">Nieuw</button>
+      <button class="btn" id="btnOverdue" onclick="setFilter('overdue',this)" style="background:#FFEBEE;color:#C62828;border-color:#EF9A9A">Verlopen</button>
+      <button class="btn" id="btnVrij" onclick="setFilter('vrij',this)" style="background:#E8F5E9;color:#2E7D32;border-color:#A5D6A7;font-weight:700">✓ Vrij</button>
+      <button class="btn" id="btnBezig" onclick="setFilter('bezig',this)" style="background:#FFF3E0;color:#E65100;border-color:#FFB74D">⚡ Bezig</button>
+      <button class="btn" id="btnWacht" onclick="setFilter('wacht',this)" style="background:#F3E5F5;color:#6A1B9A;border-color:#CE93D8">⏸ Wacht</button>
+      <button class="btn" id="btnGereed" onclick="setFilter('gereed',this)" style="background:#E8F5E9;color:#2E7D32;border-color:#A5D6A7">✅ Gereed</button>
+      <button class="btn" id="btnMijn" onclick="setFilter('mijn',this)" style="background:#E3F2FD;color:#1565C0;border-color:#90CAF9;font-weight:700">Mijn klussen</button>
+      <button class="btn" id="btnSort" onclick="toggleSort(this)">↕ Bedrag</button>
+      <button class="btn" id="btnSortDatum" onclick="toggleSortDatum(this)">↕ Datum</button>
+      <button class="btn" onclick="resetAlles()" style="border-color:var(--red-text);color:var(--red-text)">↺ Reset</button>
+      <div class="search-wrap">
+        <input type="text" id="zoekOmsch" placeholder="Zoek klant / omschrijving…" oninput="applyFilter()">
+        <input type="text" id="zoekMed" placeholder="Zoek medewerker…" oninput="applyFilter()">
+      </div>
+    </div>
+
+    <div id="tableContainer"></div>
+
+    <div id="nogTeMakenContainer" style="margin-top:1.5rem;display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Nog te maken</div>
+        <button class="btn" onclick="addNogRegel()" style="padding:5px 10px;font-size:12px">+ Regel toevoegen</button>
+      </div>
+      <div id="nogLijst"></div>
+    </div>
+
+    <div class="print-only print-footer">
+      <span>GOBA B.V. — Vertrouwelijk</span>
+      <span id="pfWeek"></span>
+      <span id="pfDate"></span>
+    </div>
+  </div>
+
+  <div id="laadScherm" style="text-align:center;padding:5rem 2rem;color:var(--text2);display:none">
+    <div style="font-size:32px;margin-bottom:12px">⏳</div>
+    <div style="font-size:16px;font-weight:500">Planning laden…</div>
+    <div style="font-size:13px;margin-top:4px">Even geduld</div>
+  </div>
+</div>
+
+<script>
+// ===== SUPABASE CONFIG =====
+const SB_URL='https://vymmgirljapfvkilqzao.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bW1naXJsamFwZnZraWxxemFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2MzE2NTksImV4cCI6MjA5NDIwNzY1OX0.-GVa02qNafn5eWwUyync9Q1cvPrfGrZe9xWq98onmj8';
+
+const HEADERS={
+  'apikey':SB_KEY,
+  'Authorization':'Bearer '+SB_KEY,
+  'Content-Type':'application/json',
+  'Prefer':'return=minimal'
+};
+
+async function sbGet(table,params=''){
+  const r=await fetch(SB_URL+'/rest/v1/'+table+'?'+params,{headers:HEADERS});
+  if(!r.ok)throw new Error(await r.text());
+  return r.json();
+}
+async function sbUpsert(table,data){
+  const r=await fetch(SB_URL+'/rest/v1/'+table,{
+    method:'POST',
+    headers:{...HEADERS,'Prefer':'resolution=merge-duplicates'},
+    body:JSON.stringify(data)
+  });
+  if(!r.ok)throw new Error(await r.text());
+}
+async function sbPatch(table,id,data){
+  const r=await fetch(SB_URL+'/rest/v1/'+table+'?id=eq.'+encodeURIComponent(id),{
+    method:'PATCH',
+    headers:HEADERS,
+    body:JSON.stringify(data)
+  });
+  if(!r.ok)throw new Error(await r.text());
+}
+
+// ===== STATE =====
+const NOW=new Date(),CUR_MONTH=NOW.getMonth(),CUR_YEAR=NOW.getFullYear();
+const MAANDEN=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+let allRows=[],filteredRows=[],currentFilter='all',mijnNaam='',isAdmin=false,sortOrder='none',sortDatumOrder='none';
+
+// ===== NAAM =====
+function initNaam(){
+  const opgeslagen=localStorage.getItem('goba_naam');
+  if(opgeslagen){
+    mijnNaam=opgeslagen;
+    document.getElementById('naamOverlay').style.display='none';
+    document.getElementById('naamTag').textContent='👤 '+mijnNaam;
+    checkAdmin();
+  } else {
+    document.getElementById('naamOverlay').style.display='flex';
+  }
+}
+
+function slaaNaamOp(){
+  const select=document.getElementById('naamInput');
+  const n=select.value;
+  if(!n){alert('Kies eerst je naam');return;}
+  mijnNaam=n;
+  localStorage.setItem('goba_naam',n);
+  document.getElementById('naamOverlay').style.display='none';
+  document.getElementById('naamTag').textContent='👤 '+mijnNaam;
+  checkAdmin();
+  laadVanDatabase();
+}
+
+function wijzigNaam(){
+  const select=document.getElementById('naamInput');
+  for(let i=0;i<select.options.length;i++){
+    if(select.options[i].value===mijnNaam){select.selectedIndex=i;break;}
+  }
+  document.getElementById('naamOverlay').style.display='flex';
+}
+
+function checkAdmin(){
+  // Wim is de admin en mag XLS uploaden
+  isAdmin=mijnNaam==='WG'||mijnNaam.toLowerCase().includes('wim');
+  document.getElementById('uploadBtn').style.display=isAdmin?'flex':'none';
+  document.getElementById('uploadZone').style.display=isAdmin?'block':'none';
+}
+
+// ===== SYNC STATUS =====
+function setSyncStatus(status){
+  const dot=document.getElementById('syncDot');
+  const txt=document.getElementById('syncTxt');
+  if(status==='ok'){dot.className='sync-dot';txt.textContent='live'}
+  if(status==='syncing'){dot.className='sync-dot syncing';txt.textContent='opslaan…'}
+  if(status==='error'){dot.className='sync-dot error';txt.textContent='fout'}
+}
+
+// ===== LADEN VAN DATABASE =====
+async function laadVanDatabase(){
+  document.getElementById('laadScherm').style.display='block';
+  try {
+    const rows=await sbGet('planning','order=customer,project,id&limit=1000');
+    if(rows.length===0){
+      document.getElementById('laadScherm').style.display='none';
+      if(isAdmin){
+        document.getElementById('uploadZone').style.display='block';
+      } else {
+        document.getElementById('laadScherm').style.display='block';
+        document.getElementById('laadScherm').innerHTML='<div style="font-size:32px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:500">Nog geen planning geladen</div><div style="font-size:13px;margin-top:4px;color:var(--text3)">Wim moet eerst een XLS uploaden</div>';
+      }
+      return;
+    }
+    allRows=rows.map(r=>({
+      id:r.id,
+      customer:r.customer,project:r.project,projectName:r.project_name,
+      omschrijving:r.omschrijving,leverdatumStr:r.leverdatum_str,
+      bedrag:r.bedrag,status:r.status,
+      aantal:r.aantal,geleverd:r.geleverd,nogTeLeveren:r.nog_te_leveren,
+      besteld:r.besteld,ontvangen:r.ontvangen,medewerker:r.medewerker||'',
+      metagnr:r.werkbon||'',notitie:r.notitie||'',notitie_wp:r.notitie_wp||'',werkstatus:r.werkstatus||'open',isNew:r.is_new||false
+    }));
+    const week=rows[0]?.week||'?';
+    filteredRows=[...allRows];
+    document.getElementById('laadScherm').style.display='none';
+    renderUI(week,'live database');
+    setSyncStatus('ok');
+    // Poll elke 30 seconden voor updates van collega's
+    setInterval(pollingUpdate,30000);
+  } catch(e){
+    setSyncStatus('error');
+    document.getElementById('laadScherm').innerHTML='<div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:16px;font-weight:500">Verbindingsfout</div><div style="font-size:13px;margin-top:4px">'+e.message+'</div>';
+  }
+}
+
+async function pollingUpdate(){
+  try {
+    const rows=await sbGet('planning','order=customer,project,id&limit=1000');
+    rows.forEach(r=>{
+      const idx=allRows.findIndex(a=>a.id===r.id);
+      if(idx>=0){
+        allRows[idx].medewerker=r.medewerker||'';
+        allRows[idx].notitie=r.notitie||'';
+        allRows[idx].notitie_wp=r.notitie_wp||'';
+        allRows[idx].werkstatus=r.werkstatus||'open';
+      }
+    });
+    applyFilter();
+    setSyncStatus('ok');
+  } catch(e){ setSyncStatus('error'); }
+}
+
+// ===== UPLOAD (alleen Wim) =====
+document.getElementById('fileIn').addEventListener('change',function(){if(this.files[0])handleFile(this.files[0])});
+document.getElementById('uploadZone').addEventListener('click',function(){document.getElementById('fileIn').click()});
+
+function handleFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      const parsed=parseRows(rows,file.name);
+      setSyncStatus('syncing');
+
+      // Haal bestaande IDs en medewerkers op uit Supabase
+      const bestaandMed=await sbGet('planning','select=id,medewerker&limit=2000');
+      const bestaandIds=new Set(bestaandMed.map(r=>r.id));
+      const medMap={};bestaandMed.forEach(r=>{medMap[r.id]=r.medewerker||''});
+
+      // Markeer nieuwe regels en bewaar handmatige namen
+      parsed.rows.forEach(r=>{
+        r.isNew=!bestaandIds.has(r.id);
+        if(!r.isNew){
+          const bestaandeMed=medMap[r.id];
+          // Als materiaal ontvangen (JJ) en medewerker is nog MeTaG → leegmaken zodat iemand kan oppakken
+          if(r.besteld==='J'&&r.ontvangen==='J'&&bestaandeMed==='MeTaG'){
+            r.medewerker='';
+          } else if(bestaandeMed){
+            r.medewerker=bestaandeMed;
+          }
+        }
+      });
+
+      await sbUpsert('planning',parsed.rows.map(r=>({
+        id:r.id,customer:r.customer,project:r.project,
+        project_name:r.projectName,omschrijving:r.omschrijving,
+        leverdatum_str:r.leverdatumStr,bedrag:r.bedrag,status:r.status,
+        aantal:r.aantal,geleverd:r.geleverd,nog_te_leveren:r.nogTeLeveren,
+        besteld:r.besteld,ontvangen:r.ontvangen,medewerker:r.medewerker,
+        werkbon:r.metagnr,week:parsed.week,is_new:r.isNew
+      })));
+
+      // Verwijder regels die niet meer in de nieuwe XLS staan
+      const nieuweIds=new Set(parsed.rows.map(r=>r.id));
+      const teVerwijderen=[...bestaandIds].filter(id=>!nieuweIds.has(id));
+      if(teVerwijderen.length>0){
+        for(const id of teVerwijderen){
+          await fetch(SB_URL+'/rest/v1/planning?id=eq.'+encodeURIComponent(id),{
+            method:'DELETE',headers:HEADERS
+          });
+        }
+      }
+
+      allRows=parsed.rows;filteredRows=[...allRows];
+      renderUI(parsed.week,file.name);
+      setSyncStatus('ok');
+      document.getElementById('fileIn').value='';
+    }catch(err){
+      setSyncStatus('error');
+      alert('Fout bij uploaden: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseRows(rows,filename){
+  const wm=filename.match(/WK[_\s]?(\d+)/i);
+  let week=wm?wm[1]:'?';
+  if(rows[0]&&rows[0][15]){const wn=String(rows[0][15]).match(/Week\s+(\d+)/i);if(wn)week=wn[1];}
+  const result=[];
+  let curCustomer='',curProject='',curProjectName='';
+  for(let i=0;i<rows.length;i++){
+    const row=rows[i];
+    if(!row||row.every(v=>v===null||v===undefined||v===''))continue;
+    const colA=row[0],colE=row[4],colG=row[6],colH=row[7];
+    const colM=row[12],colN=row[13],colO=row[14],colP=row[15],colQ=row[16];
+    if(typeof colA==='string'&&colA.trim()!==''&&colE!=='Project'&&!(colE instanceof Date)&&isNaN(parseFloat(colA))){
+      if(!colA.includes('Onderhanden')&&!colA.includes('Status')&&colA.trim().length>2){
+        curCustomer=colA.trim();curProject='';curProjectName='';
+      }
+      continue;
+    }
+    if(colE==='Project'||String(colE).trim()==='Project'){
+      curProject=String(colG||'').trim();curProjectName=String(colH||'').trim();continue;
+    }
+    const bedragVal=parseFloat(colA);
+    if(!isNaN(bedragVal)&&colA!==null&&colE instanceof Date&&curCustomer){
+      const besteld=String(colM||'').trim();
+      const ontvangen=String(colN||'').trim();
+      const autoMed=(besteld==='J'&&ontvangen==='N')?'MeTaG':'';
+      const metagnr=String(colG||'').trim();
+      const aantal=colP!==null?parseFloat(String(colP))||0:0;
+      const geleverd=colQ!==null?parseFloat(String(colQ))||0:0;
+      result.push({
+        id:metagnr+'_'+curProject,
+        customer:curCustomer,project:curProject,projectName:curProjectName,
+        omschrijving:String(colH||'').trim(),
+        leverdatumStr:fmtDate(colE),
+        bedrag:bedragVal,status:String(colO||'').trim(),
+        aantal,geleverd,nogTeLeveren:Math.max(0,aantal-geleverd),
+        besteld,ontvangen,medewerker:autoMed,isNew:false,metagnr
+      });
+    }
+  }
+  return{week,rows:result};
+}
+
+// ===== HELPERS =====
+function fmtDate(d){
+  if(!d)return'';
+  const dt=d instanceof Date?d:new Date(d);
+  if(isNaN(dt))return String(d);
+  const dd=String(dt.getDate()).padStart(2,'0');
+  const mm=String(dt.getMonth()+1).padStart(2,'0');
+  const yyyy=dt.getFullYear();
+  return dd+'-'+mm+'-'+yyyy;
+}
+function isThisMonth(s){
+  if(!s)return false;
+  const p=s.split('-');
+  if(p.length!==3)return false;
+  return parseInt(p[1])-1===CUR_MONTH&&parseInt(p[2])===CUR_YEAR;
+}
+function isOverdue(s){
+  if(!s)return false;
+  const p=s.split('-');
+  if(p.length!==3)return false;
+  const dag=parseInt(p[0]),mnd=parseInt(p[1])-1,jaar=parseInt(p[2]);
+  const leverDt=new Date(jaar,mnd,dag);
+  const vandaag=new Date();vandaag.setHours(0,0,0,0);
+  return leverDt<vandaag;
+}
+function eur(n){const num=parseFloat(n);return isNaN(num)?0:num}
+function fmtEur(n){return'\u20AC\u00A0'+Math.round(n).toLocaleString('nl-NL')}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function loadNog(){try{const r=localStorage.getItem('goba_ntm');return r?JSON.parse(r):[];}catch(e){return[]}}
+function saveNog(a){try{localStorage.setItem('goba_ntm',JSON.stringify(a));}catch(e){}}
+
+// ===== UI =====
+function renderUI(week,filename){
+  document.getElementById('uploadZone').style.display='none';
+  document.getElementById('appBody').style.display='block';
+  const pill=document.getElementById('weekPill');
+  pill.style.display='block';pill.textContent='Week '+week;
+  const ds=NOW.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('phWeek').textContent='Week '+week;
+  document.getElementById('pfWeek').textContent='Week '+week;
+  document.getElementById('pfDate').textContent=ds;
+  document.getElementById('printDate').textContent='Afgedrukt: '+ds;
+  updateStats();applyFilter();renderNog();
+}
+
+function updateStats(){
+  const mr=allRows.filter(r=>isThisMonth(r.leverdatumStr));
+  const total=mr.reduce((s,r)=>s+eur(r.bedrag),0);
+  document.getElementById('stTotal').textContent=allRows.length;
+  document.getElementById('stMonth').textContent=mr.length;
+  document.getElementById('stBedrag').textContent=fmtEur(total);
+  document.getElementById('stBedragSub').textContent=MAANDEN[CUR_MONTH]+' '+CUR_YEAR;
+  document.getElementById('stMetag').textContent=allRows.filter(r=>r.besteld==='J'&&r.ontvangen==='N').length;
+  document.getElementById('stVrij').textContent=allRows.filter(r=>!r.medewerker&&r.besteld==='J'&&r.ontvangen==='J').length;
+  document.getElementById('stOver').textContent=allRows.filter(r=>r.medewerker).length;
+  document.getElementById('phAmount').textContent=fmtEur(total);
+  document.getElementById('phCount').textContent=mr.length+' regels — '+MAANDEN[CUR_MONTH]+' '+CUR_YEAR;
+}
+
+function resetAlles(){
+  // Reset filters
+  currentFilter='all';
+  document.querySelectorAll('.toolbar .btn[id^="btn"]').forEach(b=>b.classList.remove('active'));
+  document.getElementById('btnAll').classList.add('active');
+  // Reset sortering
+  sortOrder='none';sortDatumOrder='none';
+  document.getElementById('btnSort').textContent='↕ Bedrag';
+  document.getElementById('btnSort').classList.remove('active');
+  document.getElementById('btnSortDatum').textContent='↕ Datum';
+  document.getElementById('btnSortDatum').classList.remove('active');
+  document.getElementById('btnVrij').style.background='#E8F5E9';
+  document.getElementById('btnVrij').style.color='#2E7D32';
+  document.getElementById('zoekOmsch').value='';
+  document.getElementById('zoekMed').value='';
+  applyFilter();
+}
+
+function toggleSortDatum(btn){
+  if(sortDatumOrder==='none'||sortDatumOrder==='desc'){
+    sortDatumOrder='asc';btn.textContent='↑ Datum oud→nieuw';btn.classList.add('active');
+  } else if(sortDatumOrder==='asc'){
+    sortDatumOrder='desc';btn.textContent='↓ Datum nieuw→oud';btn.classList.add('active');
+  } else {
+    sortDatumOrder='none';btn.textContent='↕ Datum';btn.classList.remove('active');
+  }
+  applyFilter();
+}
+
+function toggleSort(btn){
+  if(sortOrder==='none'||sortOrder==='asc'){
+    sortOrder='desc';btn.textContent='↓ Hoog→Laag';btn.classList.add('active');
+  } else if(sortOrder==='desc'){
+    sortOrder='asc';btn.textContent='↑ Laag→Hoog';btn.classList.add('active');
+  } else {
+    sortOrder='none';btn.textContent='↕ Bedrag';btn.classList.remove('active');
+  }
+  applyFilter();
+}
+
+function setFilter(f,btn){
+  currentFilter=f;
+  document.querySelectorAll('.toolbar .btn[id^="btn"]:not(#btnSort)').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');applyFilter();
+}
+
+function applyFilter(){
+  const zoekOmsch=(document.getElementById('zoekOmsch').value||'').toLowerCase();
+  const zoekMed=(document.getElementById('zoekMed').value||'').toLowerCase();
+  let rows=[...allRows];
+  if(currentFilter==='month')rows=rows.filter(r=>isThisMonth(r.leverdatumStr));
+  if(currentFilter==='metag')rows=rows.filter(r=>r.besteld==='J'&&r.ontvangen==='N');
+  if(currentFilter==='new')rows=rows.filter(r=>r.isNew);
+  if(currentFilter==='overdue')rows=rows.filter(r=>isOverdue(r.leverdatumStr));
+  if(currentFilter==='vrij')rows=rows.filter(r=>!r.medewerker&&r.besteld==='J'&&r.ontvangen==='J');
+  if(currentFilter==='bezig')rows=rows.filter(r=>r.werkstatus==='bezig');
+  if(currentFilter==='wacht')rows=rows.filter(r=>r.werkstatus==='wacht');
+  if(currentFilter==='gereed')rows=rows.filter(r=>r.werkstatus==='gereed');
+  if(currentFilter==='mijn')rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(mijnNaam.toLowerCase()));
+  if(zoekOmsch)rows=rows.filter(r=>r.customer.toLowerCase().includes(zoekOmsch)||r.omschrijving.toLowerCase().includes(zoekOmsch)||r.project.toLowerCase().includes(zoekOmsch));
+  if(zoekMed)rows=rows.filter(r=>(r.medewerker||'').toLowerCase().includes(zoekMed));
+  // Sorteer op bedrag
+  if(sortOrder==='desc')rows.sort((a,b)=>eur(b.bedrag)-eur(a.bedrag));
+  if(sortOrder==='asc')rows.sort((a,b)=>eur(a.bedrag)-eur(b.bedrag));
+  // Sorteer op datum
+  if(sortDatumOrder!=='none'){
+    rows.sort((a,b)=>{
+      const toDate=s=>{if(!s)return new Date(9999,0,1);const p=s.split('-');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));};
+      const da=toDate(a.leverdatumStr),db=toDate(b.leverdatumStr);
+      return sortDatumOrder==='asc'?da-db:db-da;
+    });
+  }
+  filteredRows=rows;renderTable(filteredRows);
+}
+
+function jnBadge(b,o){
+  if(!b&&!o)return'<span class="jn-empty">—</span>';
+  if(b==='J'&&o==='J')return'<span class="jn-badge jn-jj">J J</span>';
+  if(b==='J'&&o==='N')return'<span class="jn-badge jn-jn">J N</span>';
+  if(b==='N'&&o==='J')return'<span class="jn-badge jn-nj">N J</span>';
+  return'<span class="jn-badge jn-nn">—</span>';
+}
+function statusBadge(s){
+  const map={'6':'s6','7':'s7','8':'s8','9':'s9'};
+  return`<span class="badge ${map[s]||'sX'}">${s||'—'}</span>`;
+}
+
+function renderTable(rows){
+  if(!rows.length){
+    document.getElementById('tableContainer').innerHTML='<div class="empty-state"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:500;margin-bottom:4px">Geen resultaten</div><div style="font-size:13px;color:var(--text2)">Pas de filter aan</div></div>';
+    return;
+  }
+  const monthRows=rows.filter(r=>isThisMonth(r.leverdatumStr));
+  const maandTotaal=monthRows.reduce((s,r)=>s+eur(r.bedrag),0);
+
+  let html='<div class="table-wrap"><table><thead><tr>'
+    +'<th style="width:110px">Medewerker</th>'
+    +'<th style="width:90px">Leverdatum</th>'
+    +'<th style="width:72px">Werkbon</th>'
+    +'<th>Omschrijving</th>'
+    +'<th style="width:36px">St.</th>'
+    +'<th style="width:38px;text-align:right">Ant.</th>'
+    +'<th style="width:38px;text-align:right">Gel.</th>'
+    +'<th style="width:38px;text-align:right">N.t.l.</th>'
+    +'<th style="width:84px;text-align:right">Bedrag</th>'
+    +'<th style="width:56px;text-align:center">MeTaG</th>'
+    +'<th style="width:32px;text-align:center">📝</th>'
+    +'</tr></thead><tbody>';
+
+  let curCust='',curProj='';
+  rows.forEach(r=>{
+    if(r.customer!==curCust){
+      curCust=r.customer;curProj='';
+      html+=`<tr class="customer-row"><td colspan="11">${esc(r.customer)}</td></tr>`;
+    }
+    const pk=r.customer+'||'+r.project;
+    if(pk!==curProj){
+      curProj=pk;
+      const newB=r.isNew?'<span class="new-badge">Nieuw</span>':'';
+      const jaar='20'+(r.project?r.project.substring(0,2):'26');
+      const klant=r.customer?r.customer.replace(/[<>:"\/\\|?*]/g,''):'';
+      const mapPad=`I:\\Projecten\\${jaar}\\Projecten\\${r.project} ${klant}\\Werk`;
+      const gobaLink=`goba://I:/Projecten/${jaar}/Projecten/${encodeURIComponent(r.project+' '+klant)}/Werk`;
+      html+=`<tr class="project-row"><td colspan="11">
+        <a href="${gobaLink}" style="text-decoration:none" onclick="return true">
+          <span class="proj-num" style="cursor:pointer;border-bottom:1px dashed #2E7D32;padding-bottom:1px"
+            title="Klik om map te openen: ${mapPad}">
+            Project ${esc(r.project)}
+          </span>
+        </a>
+        <span class="proj-name"> ${esc(r.projectName||'')}</span>
+        ${newB}
+      </td></tr>`;
+    }
+    const overdue=isOverdue(r.leverdatumStr);
+    const hl=r.werkstatus==='gereed'?'ws-gereed':r.werkstatus==='bezig'?'ws-bezig':r.werkstatus==='wacht'?'ws-wacht':isThisMonth(r.leverdatumStr)?'highlight-month':overdue?'overdue-row':'';
+    const isMijn=mijnNaam&&(r.medewerker||'').toLowerCase().includes(mijnNaam.toLowerCase());
+    const rowCls=[hl,isMijn&&!hl?'mijn-row':''].filter(Boolean).join(' ');
+    const gIdx=allRows.indexOf(r);
+    const medVal=r.medewerker||'';
+    const isVrij=!medVal&&r.besteld==='J'&&r.ontvangen==='J';
+    const datumStijl=overdue
+      ?`font-family:'DM Mono',monospace;font-size:11px;color:#C62828;font-weight:700`
+      :`font-family:'DM Mono',monospace;font-size:11px`;
+    html+=`<tr class="${rowCls}">
+      <td><input class="medew-input" value="${esc(medVal)}" placeholder="naam…" onchange="updateMed(${gIdx},this.value)">${isVrij?'<span class="vrij-badge">✓ Vrij</span>':''}</td>
+      <td style="${datumStijl}">${esc(r.leverdatumStr)}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${esc(r.metagnr)}</td>
+      <td class="omsch-cell" style="max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r.omschrijving)}">${esc(r.omschrijving)}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="text-align:right;color:var(--text2)">${r.aantal||''}</td>
+      <td style="text-align:right;font-weight:600;color:${r.geleverd>0?'#2E7D32':'var(--text2)'}">${r.geleverd||''}</td>
+      <td style="text-align:right;font-weight:600;color:${r.nogTeLeveren>0?'#C62828':'var(--text2)'}">${r.nogTeLeveren||''}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;font-size:11px">${fmtEur(eur(r.bedrag))}</td>
+      <td style="text-align:center">${jnBadge(r.besteld,r.ontvangen)}</td>
+      <td style="text-align:center">
+        <span onclick="openNotitie(${gIdx})"
+          title="${r.notitie||r.notitie_wp?'📝 Notitie aanwezig!\nKantoor: '+(r.notitie||'—')+'\nWerkplaats: '+(r.notitie_wp||'—'):'Klik om een notitie toe te voegen'}"
+          style="cursor:pointer;display:inline-flex;align-items:center;gap:3px;padding:2px 6px;border-radius:5px;font-size:11px;font-weight:600;
+            ${r.notitie||r.notitie_wp
+              ? 'background:#FFEBEE;color:#C62828;border:1px solid #EF9A9A'
+              : 'background:transparent;color:var(--text3);border:1px solid var(--border)'}">
+          📝${r.notitie||r.notitie_wp?'<span style="margin-left:1px">!</span>':''}
+        </span>
+      </td>
+    </tr>`;
+  });
+
+  if(monthRows.length){
+    const lbl=currentFilter==='month'
+      ?`Totaal ${MAANDEN[CUR_MONTH]} ${CUR_YEAR} (${monthRows.length} regels)`
+      :`Subtotaal ${MAANDEN[CUR_MONTH]} (${monthRows.length} regels)`;
+    html+=`<tr class="totaal-row">
+      <td colspan="8" style="text-align:right;font-size:11px;font-weight:400;color:var(--text2)">${lbl}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace">${fmtEur(maandTotaal)}</td>
+      <td></td><td></td>
+    </tr>`;
+  }
+  html+='</tbody></table></div>';
+  document.getElementById('tableContainer').innerHTML=html;
+}
+
+async function updateMed(idx,val){
+  allRows[idx].medewerker=val;
+  setSyncStatus('syncing');
+  try{
+    await sbPatch('planning',allRows[idx].id,{medewerker:val,updated_at:new Date().toISOString()});
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('error');}
+  document.getElementById('stOver').textContent=allRows.filter(r=>r.medewerker).length;
+}
+
+function renderNog(){
+  const c=document.getElementById('nogTeMakenContainer');
+  const l=document.getElementById('nogLijst');
+  if(!c||!l)return;
+  c.style.display='block';
+  const items=loadNog();
+  if(!items.length){
+    l.innerHTML='<div class="nog-wrap"><div style="color:var(--text3);font-size:12px;font-style:italic">Klik op Regel toevoegen om te beginnen</div></div>';
+    return;
+  }
+  let html='<div class="nog-wrap">';
+  items.forEach((item,i)=>{
+    const omsch=typeof item==='object'?item.omschrijving||'':item;
+    const med=typeof item==='object'?item.medewerker||'':'';
+    html+=`<div class="nog-regel">
+      <span style="font-size:11px;color:var(--text3);min-width:18px">${i+1}.</span>
+      <input class="medew-input" value="${esc(med)}" placeholder="naam…" onchange="updateNogMed(${i},this.value)" style="width:110px;flex-shrink:0">
+      <input class="nog-input" value="${esc(omsch)}" placeholder="Omschrijving…" onchange="updateNogOmsch(${i},this.value)" style="flex:1">
+      <button class="nog-del" onclick="deleteNog(${i})">×</button>
+    </div>`;
+  });
+  html+='</div>';l.innerHTML=html;
+}
+function addNogRegel(){
+  const a=loadNog();
+  a.push({omschrijving:'',medewerker:''});
+  saveNog(a);renderNog();
+  setTimeout(()=>{const inputs=document.querySelectorAll('.nog-input');if(inputs.length)inputs[inputs.length-1].focus();},50);
+}
+function updateNogOmsch(i,v){
+  const a=loadNog();
+  if(typeof a[i]==='string')a[i]={omschrijving:v,medewerker:''};
+  else a[i].omschrijving=v;
+  saveNog(a);
+}
+function updateNogMed(i,v){
+  const a=loadNog();
+  if(typeof a[i]==='string')a[i]={omschrijving:a[i],medewerker:v};
+  else a[i].medewerker=v;
+  saveNog(a);
+}
+function deleteNog(i){const a=loadNog();a.splice(i,1);saveNog(a);renderNog()}
+
+function kopieerPad(pad, el){
+  navigator.clipboard.writeText(pad).then(()=>{
+    const orig=el.innerHTML;
+    el.innerHTML='✅ gekopieerd!';
+    el.style.background='#E8F5E9';
+    el.style.color='#2E7D32';
+    el.style.borderColor='#A5D6A7';
+    setTimeout(()=>{
+      el.innerHTML=orig;
+      el.style.background='#E3F2FD';
+      el.style.color='#1565C0';
+      el.style.borderColor='#90CAF9';
+    },2000);
+  }).catch(()=>{
+    prompt('Kopieer dit pad (Ctrl+C):',pad);
+  });
+}
+
+// NOTITIE POPUP
+let notitieIdx=-1;
+function openNotitie(idx){
+  notitieIdx=idx;
+  const r=allRows[idx];
+  document.getElementById('notitieTitle').textContent=r.omschrijving||r.project;
+  document.getElementById('notitieSubtitle').textContent='Project '+r.project+' — '+r.customer;
+  document.getElementById('notitieText').value=r.notitie||'';
+  // Toon werkplaats notitie als die er is
+  const wpWrap=document.getElementById('notitieWpWrap');
+  const wpText=document.getElementById('notitieWpText');
+  if(r.notitie_wp){
+    wpWrap.style.display='block';
+    wpText.textContent=r.notitie_wp;
+  } else {
+    wpWrap.style.display='none';
+  }
+  document.getElementById('notitiePopup').style.display='flex';
+  setTimeout(()=>document.getElementById('notitieText').focus(),100);
+}
+function sluitNotitie(){
+  document.getElementById('notitiePopup').style.display='none';
+  notitieIdx=-1;
+}
+async function slaNotitieOp(){
+  if(notitieIdx<0)return;
+  const val=document.getElementById('notitieText').value.trim();
+  allRows[notitieIdx].notitie=val;
+  setSyncStatus('syncing');
+  try{
+    await sbPatch('planning',allRows[notitieIdx].id,{notitie:val,updated_at:new Date().toISOString()});
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('error');}
+  sluitNotitie();
+  applyFilter();
+}
+
+function exportXLSX(){
+  const wb=XLSX.utils.book_new();
+  const data=[['Medewerker','Leverdatum','Werkbon','Omschrijving','Status','Aantal','Geleverd','N.t.l.','Bedrag','MeTaG besteld','MeTaG ontvangen']];
+  allRows.forEach(r=>data.push([r.medewerker,r.leverdatumStr,r.metagnr,r.omschrijving,r.status,r.aantal,r.geleverd,r.nogTeLeveren,eur(r.bedrag),r.besteld,r.ontvangen]));
+  data.push([]);
+  const mr=allRows.filter(r=>isThisMonth(r.leverdatumStr));
+  const mt=mr.reduce((s,r)=>s+eur(r.bedrag),0);
+  data.push(['','','','Totaal '+MAANDEN[CUR_MONTH]+' '+CUR_YEAR+' ('+mr.length+' regels)','','','','',mt,'','']);
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:14},{wch:12},{wch:10},{wch:42},{wch:6},{wch:7},{wch:7},{wch:7},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Weekplanning');
+  XLSX.writeFile(wb,'GOBA_planning.xlsx');
+}
+
+// ===== START =====
+initNaam();
+if(mijnNaam)laadVanDatabase();
+</script>
+</body>
+</html>
